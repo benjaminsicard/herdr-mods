@@ -1,57 +1,72 @@
-# Universal auto tabs implementation contract
+# Universal auto tabs
 
-`mods/auto-tabs/main.js` adapts Herdr 0.1.12's shipped `tabs` mod. It imports `syncNames()` from `names.js`, starts a 3000ms timer in `init(_props, cx)`, increases name width from 170px to 280px, and points Windows icons at `mods/auto-tabs/`. Other native UI behavior is unchanged in the source.
+Tabs name themselves after what runs in them: a coding agent's conversation title (Claude Code, Codex, OpenCode, Grok Build, any program that sets a terminal title), else the program's name, else the shell's folder. Each space takes the name of the tab it shows, and the agents list shows each agent by its tab name alone. Names you type yourself always win until you clear them.
 
-`mod.json` sets `place` to `none` because the mod replaces a layout's tab bar. It records the cloned `tabs` version as `0.1.12`. The mod uses the app's shipped menus, spinner, close icon, panel icons, layout nodes, and commands.
+![Universal auto tabs](preview.png)
 
-## Name selection
+## What you see
 
-`syncNames()` reads all live tabs from `spaces()` and terminal panes from `panes()`. It ignores mod panes and panes whose tabs no longer exist. The first pane at the highest available rank supplies the name:
+- **Tab bar** (`auto-tabs`): Herdr's native tab bar, unchanged except that each tab's name may run to 280px before it truncates (native: 170px). Pills are 29px high, 12.8px text, the program's 14px icon before the name, a spinner while working, a 6px dot for blocked or done, and a close button on the active tab. On the right: `+`, Files and Changes.
+- **Tab names**: a coding agent's tab reads as its conversation, e.g. "Fix login redirect loop". An agent with no title shows its program name ("OpenCode"). A shell tab shows its last folder ("acme-api"), `~` at home.
+- **Space names** (Spaces sidebar, agents group headers): the active tab's name, e.g. "Add dark mode toggle".
+- **Agents list** (`auto-agents`): Herdr's native agents list, but each row is the icon, the tab name (truncated to the row), time since its last change, and status. No space, repo or machine in the row.
 
-| Priority | Pane metadata | Name |
+## How it behaves
+
+- Every 3 seconds the tab bar re-reads all spaces, tabs and panes and renames what changed. Nothing runs while no layout shows the `auto-tabs` bar.
+- When an agent sets a new title, its tab follows within one poll. When the program exits to the shell prompt, the tab goes back to the folder name, ignoring any title the program left behind.
+- In a split tab, the first pane with a useful title wins, then the first program name, then the first shell folder.
+- Double-click a tab (or `tab.rename`) to name it yourself: the name stays through any title change. Rename it to an empty name to hand it back.
+- Switching tabs renames the space to the newly shown tab. Renaming a space yourself keeps your name; an empty name hands it back. A space that has Herdr's own repo or folder name is taken over; another name already on a space counts as yours.
+- Agent statuses look exactly as in Herdr: working shows a spinner, blocked a "Needs you" badge (or `!` under a section header), done a dot, idle a ring. Clicking a row focuses its pane, the icon folds sub-agents, hovering shows the pin.
+- Tab selection, double-click rename, right-click menu, drag to move, close, scroll-to-switch, `+` menu, Files and Changes all work as in Herdr.
+
+## Built from
+
+- `mods/auto-tabs/`: a clone of Herdr 0.1.12's shipped `tabs` mod (`mod.json` `place: "none"`). `main.js` adds `import { syncNames } from "./names.js"`, `cx.timer.every(3000, () => syncNames())` in `init(_props, cx)`, `max_w(280)` on the name, and points the Windows window-button SVGs at `mods/auto-tabs/`. The four `win-*.svg` files are unchanged copies.
+- `mods/auto-tabs/names.js` exports only `syncNames()`. It uses `spaces()`, `panes()`, `shared()`, `setShared()` and `run()` from `herdr`, and the commands `tab.rename` and `space.rename`. It runs no programs, reads no files and makes no network requests.
+- `mods/auto-agents/`: a clone of Herdr 0.1.12's shipped `agents` mod. The row label is the tab's name (the live agent title for an unnamed tab or one named after its program), or the agent's program for an automatic tab number. The space name, the `· detail` suffix and the machine tag are removed. Its sort menu still opens the shipped `agents` mod as a popup.
+- Installed into a layout by replacing the tab bar block's `"mod": "tabs"` with `"auto-tabs"` and the sidebar's `"mod": "agents"` with `"auto-agents"`.
+
+### Name selection
+
+| Rank | Pane | Name |
 |---|---|---|
-| Highest | Non-shell program with a useful title | Terminal title |
-| Middle | Non-shell program without a useful title | Configured `program.name`, then `app` |
-| Lowest | Shell with a working directory | Last folder name |
+| 3 | Non-shell program with a useful title | The title, with known leading spinner glyphs and their space removed |
+| 2 | Non-shell program without one | `program.name`, then `app` |
+| 1 | Shell with a working directory | Last folder name; `/home/x`, `/Users/x`, `/root`, `C:\Users\x` are `~`; roots keep a root label |
 
-A title equal to the program key, app identity, or display name counts as a fallback. A configured display name replaces a raw identity when available. `program.agent`, status, and focus do not affect name selection. Shells ignore terminal titles.
+A title equal to the program key, the app or the display name counts as no title. Mod panes and panes of closed tabs are ignored.
 
-Names preserve punctuation. Only known leading spinner frames followed by whitespace are removed. Conventional home paths become `~`. POSIX roots, drive roots, and UNC share roots keep root labels. Both slash styles are supported.
+### Ownership
 
-## Ownership and queued commands
-
-The public module exports only `syncNames()`. Each tab's ownership record lives under the existing shared key `tab-titles.set`:
+Records live in shared state: tabs under `tab-titles.set`, spaces under `space-titles.set`, keyed by id.
 
 | Record | Meaning |
 |---|---|
-| `{mode: "auto", applied}` | Last confirmed automatic name, or `null` before confirmation |
-| `{mode: "manual"}` | An observed manual override |
-| `{mode: "pending", applied, from, target}` | Queued rename and the observed baseline |
+| `{mode: "auto", applied}` | Last confirmed automatic name (`null` before one) |
+| `{mode: "manual"}` | Someone renamed it; leave it until it is cleared |
+| `{mode: "pending", applied, from, target}` | A rename was sent; `from` is the `{named, name}` seen before it |
 
-`from` stores the baseline `named` and `name` fields. Legacy string records migrate as evidence of an automatic name. Initially unnamed tabs can enter automatic mode. A live non-shell display name also qualifies as a launcher default. Unrecognized named tabs remain unowned and can qualify later when program metadata arrives.
+An unnamed tab or space starts automatic. A named tab with no record is adopted only when its name is a live program's display name (the launcher's default). A named space with no record is adopted only when its name is the last folder of the space folder or of one of its terminals. A pending rename is confirmed when live data shows the target. If the item is unchanged, the rename is resent every second poll. Any other change makes it manual. A legacy string record counts as an automatic name.
 
-The module checks ownership before comparing the desired name with the current name. Title equality alone does not establish ownership. An observed manual override remains manual until the name is cleared. A preexisting manual name equal to a launcher default remains ambiguous.
+A space's wanted name is its active tab's automatic name while that tab is automatic or pending, else the tab's own name when someone named it.
 
-`run("tab.rename", {id, name})` queues a rename. The record becomes confirmed only when live tab data matches the target. An unchanged baseline waits one poll before a retry. Changing titles wait for the pending target to be observed before the latest title is sent.
+## Watch out
 
-Retry waits stay in module memory. Stable polls send no commands and write no shared state. Synchronous command errors preserve observed ownership and propagate after other tabs and cleanup. Closed tabs are pruned. Mod-only tabs retain their records.
+- Herdr knows what runs in a terminal from its foreground process. A program started from a script without job control (e.g. `zsh -c 'prog; …'`) stays part of the shell's process group, so the tab shows the folder. Programs typed at a prompt, or started directly as the tab's command, are detected.
+- Only titles a program publishes are used: the mod never reads conversations, arguments or session files. Titles such as Codex's "Topic | repo" keep their suffix.
+- `tab.rename` and `space.rename` queue without acknowledgment or compare-and-set. A rename queued just before a manual rename can race it. A manual name identical to the last automatic name is indistinguishable from it.
+- Selection is per screen, so two screens showing different tabs of one space would each pull the space name their way.
+- Use one `auto-tabs` bar per layout: copies share records without a lock.
+- Never pass an empty name to `tab.rename` or `space.rename`: Herdr then asks the person.
 
-The host has no rename acknowledgment or compare-and-set operation. An already queued command can race a manual rename. Multiple bars share records without a lock, so each layout uses one instance.
+## Done when
 
-## Space names
-
-After tabs, `syncNames()` names each space after its active tab: the tab's chosen automatic name while the tab is automatic or pending, otherwise its own name when someone named it. Spaces use the same ownership records under the shared key `space-titles.set` and `space.rename`. An unnamed space starts automatic. A named space with no record is adopted when its name equals the last folder of the space folder or of any of its terminals, Herdr's own naming; any other name stays manual until cleared.
-
-## Agents list
-
-`mods/auto-agents/main.js` adapts Herdr 0.1.12's shipped `agents` mod. Each row shows its tab's name (the live agent title for an unnamed or default-named tab), or the agent's program for an automatic tab number. The space name, the `· detail` suffix and the machine tag are removed in every view.
-
-## Validation scope
-
-The dependency-free tests load the actual `names.js` with mocked Herdr APIs:
-
-```sh
-	node --experimental-vm-modules tests/names.test.mjs
-```
-
-`herdr-app check mods/auto-tabs` verifies initial loading with empty live data. Desktop interaction and live naming checks are separate. [The installation guide](README.md#check-the-installed-behavior) lists those checks without claiming that automated tests prove them.
+- `herdr-app check` passes for `mods/auto-tabs` and `mods/auto-agents`.
+- `node --experimental-vm-modules --test tests/names.test.mjs` passes all 27 tests (they load the real `names.js` with a mocked `herdr`).
+- A new shell tab in `/tmp/acme-api` reads "acme-api" within 3 seconds.
+- Running a program that sets the title "Fix login redirect loop" renames its tab to that; exiting it brings back "acme-api".
+- Double-clicking a tab and naming it "Mine" keeps "Mine" while titles change; renaming it to "" brings automatic naming back.
+- The space shows the active tab's name and changes when another tab is selected. A manual space name stays; clearing it brings the automatic name back.
+- Agent rows show only the tab name, in the priority and grouped views alike.
