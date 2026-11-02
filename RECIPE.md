@@ -38,6 +38,14 @@ Retry waits stay in module memory. Stable polls send no commands and write no sh
 
 The host has no rename acknowledgment or compare-and-set operation. An already queued command can race a manual rename. Multiple bars share records without a lock, so each layout uses one instance.
 
+## Space names
+
+After tabs, `syncNames()` names each space after its active tab: the tab's chosen automatic name while the tab is automatic or pending, otherwise its own name when someone named it. Spaces use the same ownership records under the shared key `space-titles.set` and `space.rename`. An unnamed space starts automatic. A named space with no record is adopted when its name equals the last folder of the space folder or of any of its terminals, Herdr's own naming; any other name stays manual until cleared.
+
+## Agents list
+
+`mods/auto-agents/main.js` adapts Herdr 0.1.12's shipped `agents` mod. Each row shows its tab's name (the live agent title for an unnamed or default-named tab), or the agent's program for an automatic tab number. The space name, the `· detail` suffix and the machine tag are removed in every view.
+
 ## Validation scope
 
 The dependency-free tests load the actual `names.js` with mocked Herdr APIs:

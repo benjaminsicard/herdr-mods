@@ -14,19 +14,24 @@ const program = (name = "Codex", overrides = {}) => pane({
   program: { key: name.toLowerCase(), name, shell: false, agent: false }, ...overrides,
 });
 
-async function host({ tabs = [tab()], panes = [pane()], saved } = {}) {
-  const state = { tabs, panes, saved: clone(saved), calls: [], writes: [], error: null };
+async function host({ tabs = [tab()], panes = [pane()], saved, spaces, spaceSaved } = {}) {
+  const state = {
+    tabs, panes, spaces, saved: clone(saved), spaceSaved: clone(spaceSaved),
+    calls: [], spaceCalls: [], writes: [], error: null,
+  };
   const context = createContext();
   const exports = {
-    spaces: () => [{ tabs: state.tabs }],
+    spaces: () => state.spaces ?? [{ id: "sp1", name: "project", named: false, folder: "", tabs: state.tabs }],
     panes: () => state.panes,
-    shared: key => { assert.equal(key, "tab-titles.set"); return clone(state.saved); },
+    shared: key => clone(key === "space-titles.set" ? state.spaceSaved : (assert.equal(key, "tab-titles.set"), state.saved)),
     setShared: (key, value) => {
+      if (key === "space-titles.set") { state.spaceSaved = clone(value); return; }
       assert.equal(key, "tab-titles.set");
       state.saved = clone(value);
       state.writes.push(clone(value));
     },
     run: (command, args) => {
+      if (command === "space.rename") { state.spaceCalls.push(clone(args)); return null; }
       assert.equal(command, "tab.rename");
       if (state.error) throw state.error;
       state.calls.push(clone(args));
@@ -303,4 +308,54 @@ test("titles preserve punctuation and remove only known leading spinner frames",
     h.poll();
     assert.equal(h.calls[0].name, expected, title);
   }
+});
+
+const space = (overrides = {}) => ({ id: "sp1", name: "project", named: false, folder: "/home/user/project", ...overrides });
+const ackSpace = (h, call = h.spaceCalls.at(-1)) => Object.assign(h.spaces.find(item => item.id === call.id), { name: call.name, named: true });
+
+test("a space follows its active tab's automatic name once it lands", async () => {
+  const tabs = [tab({ active: true }), tab({ id: "tab2", name: "2" })];
+  const h = await host({
+    tabs, spaces: [space({ tabs })],
+    panes: [program("Codex", { title: "Fix retries" }), program("Claude Code", { tab: "tab2", terminal: "t2", title: "Other work" })],
+  });
+  h.poll();
+  assert.deepEqual(h.spaceCalls, [{ id: "sp1", name: "Fix retries" }]);
+  h.ack(); ackSpace(h); h.poll();
+  assert.deepEqual(h.spaceSaved.sp1, { mode: "auto", applied: "Fix retries" });
+  tabs[0].active = false; tabs[1].active = true;
+  h.poll();
+  assert.deepEqual(h.spaceCalls.at(-1), { id: "sp1", name: "Other work" });
+});
+
+test("a space follows a manually named active tab", async () => {
+  const tabs = [tab({ active: true, name: "Release notes", named: true })];
+  const h = await host({ tabs, spaces: [space({ tabs })], panes: [program("Codex", { title: "Fix retries" })] });
+  h.poll();
+  assert.deepEqual(h.calls, []);
+  assert.deepEqual(h.spaceCalls, [{ id: "sp1", name: "Release notes" }]);
+});
+
+test("Herdr's folder name for a space is adopted; other space names are manual", async () => {
+  for (const [name, expected] of [["project", [{ id: "sp1", name: "Fix retries" }]], ["My space", []]]) {
+    const tabs = [tab({ active: true })];
+    const h = await host({ tabs, spaces: [space({ tabs, name, named: true })], panes: [program("Codex", { title: "Fix retries" })] });
+    h.poll();
+    assert.deepEqual(h.spaceCalls, expected);
+  }
+});
+
+test("a manual space rename stays until cleared", async () => {
+  const tabs = [tab({ active: true })];
+  const spaces = [space({ tabs })];
+  const h = await host({ tabs, spaces, panes: [program("Codex", { title: "Fix retries" })] });
+  h.poll(); h.ack(); ackSpace(h); h.poll();
+  Object.assign(spaces[0], { name: "Mine", named: true });
+  h.panes[0].title = "New topic";
+  h.poll(); h.ack(); h.poll();
+  assert.equal(h.spaceCalls.length, 1);
+  assert.deepEqual(h.spaceSaved.sp1, { mode: "manual" });
+  Object.assign(spaces[0], { name: "project", named: false });
+  h.poll();
+  assert.deepEqual(h.spaceCalls.at(-1), { id: "sp1", name: "New topic" });
 });
