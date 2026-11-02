@@ -1,0 +1,10 @@
+.audit/
+gpui-kit.d.ts
+jsconfig.json
+*.error
+*.error.*
+.env
+.env.*
+.DS_Store
+Thumbs.db
+Desktop.ini
