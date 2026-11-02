@@ -44,7 +44,7 @@ After tabs, `syncNames()` names each space after its active tab: the tab's chose
 
 ## Agents list
 
-`mods/auto-agents/main.js` adapts Herdr 0.1.12's shipped `agents` mod. Each row shows its tab's name (the live agent title for an unnamed or default-named tab), or the agent's program for an automatic tab number. The space name and the `· detail` suffix are removed in every view.
+`mods/auto-agents/main.js` adapts Herdr 0.1.12's shipped `agents` mod. Each row shows its tab's name (the live agent title for an unnamed or default-named tab), or the agent's program for an automatic tab number. The space name, the `· detail` suffix and the machine tag are removed in every view.
 
 ## Validation scope
 

@@ -1,4 +1,4 @@
-// auto-agents: herdr's agents list (cloned); rows show their tab's name, never the space.
+// auto-agents: herdr's agents list (cloned); rows show their tab's name alone, without space or machine.
 // Agents in grouped or priority views; parents take their most urgent sub-agent's place.
 // A viewed done agent stays in Done until left.
 
@@ -280,8 +280,6 @@ export default class Agents extends View {
 
     const row = (a, i, subs = []) => {
       const pic = icon(a.program, 16, t.foreground);
-      // An agent on another machine (`vps/t7`) says which.
-      const machine = a.address.includes("/") ? a.address.split("/")[0] : null;
       if (collapsed) {
         return h_flex()
           .id(`ag-${a.address}`)
@@ -341,7 +339,6 @@ export default class Agents extends View {
           })).child(pic)))
         .child(h_flex().flex_1().min_w(0).gap(5).items_center()
           .child(div().min_w(0).truncate().text_color(idle ? t.muted : t.foreground).child(name)))
-        .when(Boolean(machine), el => el.child(div().text_size(10).text_color(t.dim).child(machine)))
         .when(subs.length > 0, el => el.child(fold(a, subs)))
         .when(this.hovered === a.address, el => el.child(pin))
         .when(this.hovered !== a.address && Boolean(when), el => el.child(div().flex_none().text_size(11).text_color(t.dim).child(duration(now - when))))

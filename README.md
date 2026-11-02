@@ -8,7 +8,7 @@ A [Herdr](https://herdr.dev) mod that names tabs from terminal titles, running p
 - In split tabs, useful program titles outrank program names, which outrank shell folders. Pane order breaks ties.
 - Names can occupy 280px instead of the native 170px.
 - Each space follows its active tab's name. Herdr's own repo or folder name for a space is replaced; a space you named yourself keeps its name until you clear it.
-- An optional `auto-agents` list shows each agent row as its tab's name, without the space or repo in front.
+- An optional `auto-agents` list shows each agent row as its tab's name, without the space, repo or machine.
 
 The tab bar and agents list use Herdr 0.1.12's native UI, including its context menu and Windows window icons. The mod starts no programs, reads no files, and makes no network requests.
 
