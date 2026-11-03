@@ -31,7 +31,7 @@ When an agent needs you or finishes while you aren't looking, the alert also rea
   - Reads `agents()`, `terminals()` (entries with a `parent` are sub-agents), `focused()` (`space`, `tab`), `window()` (`active`, `platform`) and `props()`.
   - Checks on every `render` (live data changed) and on `cx.timer.every(2000)`, so it keeps working when its block is hidden.
   - Delivers with `exec`:
-    - macOS: `terminal-notifier -title … -subtitle … -message … -group herdr-agent-<address> -activate dev.herdr.app -execute "<herdr-app path> do agent.focus '{…}'"`, and `terminal-notifier -remove herdr-agent-<address>` to clear. If terminal-notifier is missing, or exits non-zero (for example because macOS doesn't allow it to notify), it switches to `osascript` with `display notification … with title … subtitle …`.
+    - macOS: `terminal-notifier -title … -subtitle … -message … -group herdr-agent-<address> -activate dev.herdr.app -execute "<herdr-app path> do agent.focus '{…}'"`, and `terminal-notifier -remove herdr-agent-<address>` to clear. If terminal-notifier is missing, or exits non-zero (for example because macOS doesn't allow it to notify), that one notification goes through `osascript` (`display notification … with title … subtitle …`), and the next one tries terminal-notifier again.
     - Linux: `notify-send --app-name=Herdr --urgency=critical|normal <title> <subtitle>\n<body>`.
     - Windows: nothing.
   - Finds programs once with `/bin/sh -c 'command -v …'`, including `herdr-app`'s path for the click action.
@@ -48,7 +48,7 @@ When an agent needs you or finishes while you aren't looking, the alert also rea
 - A mod only runs while a layout shows its block. A fresh build docks into the layout shown when the folder first appears. Other layouts (`terminals`, `win98`, your clones) need the same 0px block added by hand, or they won't notify.
 - One block per layout. Two copies post twice.
 - On macOS, `osascript` notifications are attributed to Script Editor: clicking one opens Script Editor, not Herdr, and they can't be removed later. Install terminal-notifier (`brew install terminal-notifier`) for click-to-focus and auto-clearing.
-- terminal-notifier has to be allowed in System Settings → Notifications → terminal-notifier. Until it is, it exits with code 3 ("Notifications are not allowed for this application") and the mod falls back to osascript for the rest of the session.
+- terminal-notifier has to be allowed in System Settings → Notifications → terminal-notifier. Until it is, it exits with code 3 ("Notifications are not allowed for this application") and each notification falls back to osascript. On macOS 26 a Homebrew install may not show up in that list at all: register it with `lsregister -f` on its `.app` and `open` it once to get the permission prompt.
 - Don't detect "looking" with `agent.focused` alone. Herdr treats every agent in the shown tab of the active window as seen, so a split pane next to the focused one doesn't count as finished-while-away.
 - `exec` runs with the user's real PATH. The `-execute` string runs under terminal-notifier's own shell, so it needs `herdr-app`'s absolute path.
 - No dock badge: mods can't set one.

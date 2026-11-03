@@ -70,8 +70,8 @@ export default class DesktopNotifications extends View {
       if (this.app) args.push("-execute", `${sh(this.app)} do agent.focus ${sh(JSON.stringify({ terminal: n.address }))}`);
       const r = await exec("terminal-notifier", args).catch(() => ({ code: -1 }));
       if (r.code === 0) return;
-      // Not allowed to notify (System Settings > Notifications), or broken: use macOS's own.
-      this.sender = "osascript";
+      // Not allowed to notify (System Settings > Notifications), or broken: use macOS's
+      // own for this one, and try terminal-notifier again next time (it may be allowed by then).
       return this.post("osascript", n);
     }
     if (sender === "osascript") {
