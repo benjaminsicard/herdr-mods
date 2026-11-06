@@ -32,6 +32,8 @@ Herdr docks a 0px block for the mod into the layout you're showing. If you use o
 { "type": "block", "content": { "mod": "desktop-notifications" }, "size": { "px": 0 } }
 ```
 
+To dock the block, Herdr wraps your layout's top node in a new row and column. The old top node's root-only settings (`titlebar`, `traffic_lights`, `terminal_padding`, `background`) then sit one level down, and Herdr ignores them: terminal text loses its padding and looks zoomed in. After the block appears, move those keys from the old `"id": "root"` node up to the new top node of the layout file. Herdr reloads it live.
+
 ### macOS: recommended
 
 ```sh
