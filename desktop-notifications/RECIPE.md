@@ -47,6 +47,7 @@ When an agent needs you or finishes while you aren't looking, the alert also rea
 
 - A mod only runs while a layout shows its block. A fresh build docks into the layout shown when the folder first appears. Other layouts (`terminals`, `win98`, your clones) need the same 0px block added by hand, or they won't notify.
 - One block per layout. Two copies post twice.
+- Docking wraps the layout's top node in a new row and column, so its root-only settings (`titlebar`, `traffic_lights`, `terminal_padding`, `background`) end up on a nested node and stop applying. Terminals lose their padding and look zoomed in. Move those keys up to the new top node after the block docks.
 - On macOS, `osascript` notifications are attributed to Script Editor: clicking one opens Script Editor, not Herdr, and they can't be removed later. Install terminal-notifier (`brew install terminal-notifier`) for click-to-focus and auto-clearing.
 - terminal-notifier has to be allowed in System Settings → Notifications → terminal-notifier. Until it is, it exits with code 3 ("Notifications are not allowed for this application") and each notification falls back to osascript. On macOS 26 a Homebrew install may not show up in that list at all: register it with `lsregister -f` on its `.app` and `open` it once to get the permission prompt.
 - Don't detect "looking" with `agent.focused` alone. Herdr treats every agent in the shown tab of the active window as seen, so a split pane next to the focused one doesn't count as finished-while-away.
