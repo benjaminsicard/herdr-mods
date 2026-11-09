@@ -57,6 +57,8 @@ These commands require an installed Herdr desktop app and a POSIX shell. Read yo
 
 5. Open `~/.config/herdr-app/layouts/auto-tabs-main.json`. In the tab bar block, replace `"content": { "mod": "tabs" }` with `"content": { "mod": "auto-tabs" }`. For the agents list, replace `"mod": "agents"` with `"mod": "auto-agents"` in the sidebar's agents block. Preserve the other blocks.
 
+   Scrolling over the tab bar switches tabs. To turn that off (for example with a Magic Mouse or a sensitive trackpad), give the block a prop: `"content": { "mod": "auto-tabs", "props": { "wheel": false } }`.
+
 6. Restart Herdr if it does not discover the new mod, then complete the live checks below. Copy the mod directory rather than symlinking it, so Herdr can detect changes.
 
 To return to the shipped tab bar, select the `main` layout with Ctrl+Shift+L. Keep the cloned layout and mod until you decide to remove them.
