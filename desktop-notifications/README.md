@@ -7,10 +7,10 @@ A [Herdr](https://herdr.dev) mod that sends Herdr's "needs you" and "finished" a
 - **Blocked:** "Claude Code needs you" whenever an agent needs you.
 - **Done:** "Claude Code finished" when an agent finishes and you weren't looking. That means Herdr wasn't the front app, or the agent's tab wasn't the one shown.
 - **Details:** each notification shows the space and tab, and the agent's conversation title.
-- **Clean up:** a notification goes away once the agent moves on, and clicking it focuses that agent. Both need terminal-notifier.
+- **Clean up:** a notification goes away once the agent moves on, and clicking it focuses that agent. Both need terminal-notifier on macOS, or a `notify-send` with `--action` and `--wait` (libnotify 0.8) on Linux.
 - **Window:** the mod draws nothing. It lives in a 0px block.
 
-It runs `terminal-notifier`, `osascript` or `notify-send` and `herdr-app`. It reads no files and makes no network requests.
+It runs `terminal-notifier`, `osascript` or `notify-send` and `herdr-app`. On Linux it keeps one small pid file per open notification under `$XDG_RUNTIME_DIR/herdr-desktop-notifications/`. It makes no network requests.
 
 ## Install
 
