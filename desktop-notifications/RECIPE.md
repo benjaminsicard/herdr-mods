@@ -17,9 +17,9 @@ When an agent needs you or finishes while you aren't looking, the alert also rea
 
 - **Blocked:** an agent that changes to `blocked` posts a notification, even if you are looking at it. This matches Herdr's sound, which also always plays for blocked.
 - **Done:** an agent that goes from `working` or `blocked` to `done` or `idle` posts a notification only if you weren't looking. Looking means the Herdr window is the active app and the agent's tab is the shown tab. So an agent that finishes in front of you while you are in another app still notifies.
-- **Working / idle:** nothing is posted. When an agent that has a notification goes back to `working` or `idle` (you looked at it, or answered it elsewhere), or disappears, its notification is removed from Notification Center. This works with terminal-notifier only.
+- **Working / idle:** nothing is posted. When an agent that has a notification goes back to `working` or `idle` (you looked at it, or answered it elsewhere), or disappears, its notification is removed from Notification Center. This works with terminal-notifier, and on Linux with a `notify-send` that has `--action` and `--wait`.
 - **One per agent:** a new notification for the same agent replaces the old one.
-- **Click** (terminal-notifier only): runs `herdr-app do agent.focus '{"terminal":"<address>"}'` and activates `dev.herdr.app`, so Herdr comes to the front on that agent, across spaces and machines.
+- **Click** (terminal-notifier, or Linux with `--action`): runs `herdr-app do agent.focus '{"terminal":"<address>"}'` (on macOS also activating `dev.herdr.app`), so Herdr shows that agent, across spaces and machines.
 - **Startup:** the first read only records statuses, so agents that were already blocked or done when Herdr started don't notify.
 - Sub-agents never notify; their parent does, as in Herdr.
 - Agents on other machines (`vps/t7`) notify the same way.
@@ -32,7 +32,7 @@ When an agent needs you or finishes while you aren't looking, the alert also rea
   - Checks on every `render` (live data changed) and on `cx.timer.every(2000)`, so it keeps working when its block is hidden.
   - Delivers with `exec`:
     - macOS: `terminal-notifier -title … -subtitle … -message … -group herdr-agent-<address> -activate dev.herdr.app -execute "<herdr-app path> do agent.focus '{…}'"`, and `terminal-notifier -remove herdr-agent-<address>` to clear. If terminal-notifier is missing, or exits non-zero (for example because macOS doesn't allow it to notify), that one notification goes through `osascript` (`display notification … with title … subtitle …`), and the next one tries terminal-notifier again.
-    - Linux: `notify-send --app-name=Herdr --urgency=critical|normal <title> <subtitle>\n<body>`.
+    - Linux: `linux-notify.sh post <address> critical|normal <title> <subtitle>\n<body>` and `linux-notify.sh close <address>`. GNOME lets only the sender close a notification, so the script keeps one detached `notify-send --app-name=Herdr --urgency=… --action=default=Open` waiting on each notification, with its pid in `$XDG_RUNTIME_DIR/herdr-desktop-notifications/<address>.pid`. `close` sends it SIGINT, and notify-send closes its notification. A click prints `default`, and the script runs `herdr-app do agent.focus --terminal <address>`. A new notification for the same agent closes the old one first. Without `--action`/`--wait` in `notify-send --help`, or without `setsid`, it falls back to a plain `notify-send` that neither clears nor focuses.
     - Windows: nothing.
   - Finds programs once with `/bin/sh -c 'command -v …'`, including `herdr-app`'s path for the click action.
 - `alerts.js`: pure functions, with no `herdr` import:
@@ -63,7 +63,7 @@ When an agent needs you or finishes while you aren't looking, the alert also rea
   st() { printf '\033]7501;state=%s\033\\' "$1"; }; st idle; sleep 4; st working; sleep 4; st blocked; sleep 8; st working; sleep 4; st done; sleep 600
   ```
 
-  You get "sh needs you" when it blocks, that notification goes away when it works again (terminal-notifier only), and "sh finished" arrives at the end.
+  You get "sh needs you" when it blocks, that notification goes away when it works again (terminal-notifier, or Linux with `--action`/`--wait`), and "sh finished" arrives at the end.
 - The same agent finishing in the shown tab, with Herdr in front, posts nothing. With another app in front, it posts "finished".
-- With terminal-notifier, clicking the notification brings Herdr forward on that agent's tab.
+- With terminal-notifier, or on Linux with `--action`, clicking the notification shows that agent's tab in Herdr.
 - `node --test tests/alerts.test.mjs` passes: 10 tests.

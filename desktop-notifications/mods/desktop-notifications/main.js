@@ -3,11 +3,14 @@
 // 0px block. alerts.js decides what to announce; this file delivers it.
 
 import { View, div } from "gpui-kit";
-import { agents, terminals, focused, window, exec, props } from "herdr";
+import { agents, terminals, focused, window, exec, props, appHome } from "herdr";
 import { diff } from "./alerts.js";
 
 const BUNDLE = "dev.herdr.app";
 const GROUP = "herdr-agent-";
+// Linux notifications that close when the agent moves on and focus it when
+// clicked; see linux-notify.sh. Needs a notify-send with --action and --wait.
+const LINUX = () => `${appHome()}/mods/desktop-notifications/linux-notify.sh`;
 
 // Quotes one word for sh.
 const sh = (s) => `'${String(s).replace(/'/g, `'\\''`)}'`;
@@ -17,6 +20,7 @@ export default class DesktopNotifications extends View {
     this.known = null;
     this.sender = null; // "terminal-notifier" | "osascript" | "notify-send" | "none", found on first use
     this.app = null; // herdr-app's path, for click-to-focus
+    this.linuxWait = false; // notify-send can wait on its notification (linux-notify.sh)
     // render runs on every live change; the timer covers a hidden block.
     cx.timer.every(2000, () => this.check());
   }
@@ -44,6 +48,8 @@ export default class DesktopNotifications extends View {
     for (const n of post) await this.post(await this.findSender(), n);
     if (this.sender === "terminal-notifier") {
       for (const address of clear) await exec("terminal-notifier", ["-remove", GROUP + address]).catch(() => {});
+    } else if (this.linuxWait) {
+      for (const address of clear) await exec("sh", [LINUX(), "close", address]).catch(() => {});
     }
   }
 
@@ -57,6 +63,10 @@ export default class DesktopNotifications extends View {
       this.app = found?.code === 0 ? found.stdout.trim() : null;
     } else if (platform === "linux") {
       this.sender = (await has("notify-send")) ? "notify-send" : "none";
+      if (this.sender === "notify-send" && (await has("setsid"))) {
+        const help = await exec("notify-send", ["--help"]).catch(() => ({ stdout: "" }));
+        this.linuxWait = /--action/.test(help.stdout) && /--wait/.test(help.stdout);
+      }
     } else {
       this.sender = "none";
     }
@@ -79,7 +89,9 @@ export default class DesktopNotifications extends View {
       await exec("osascript", ["-e", script, n.title, n.subtitle ?? "", n.body]);
     } else if (sender === "notify-send") {
       const body = n.subtitle ? `${n.subtitle}\n${n.body}` : n.body;
-      await exec("notify-send", ["--app-name=Herdr", `--urgency=${n.alert === "blocked" ? "critical" : "normal"}`, n.title, body]);
+      const urgency = n.alert === "blocked" ? "critical" : "normal";
+      if (this.linuxWait) await exec("sh", [LINUX(), "post", n.address, urgency, n.title, body]);
+      else await exec("notify-send", ["--app-name=Herdr", `--urgency=${urgency}`, n.title, body]);
     }
   }
 
